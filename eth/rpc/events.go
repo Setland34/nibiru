@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"cosmossdk.io/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,44 +15,10 @@ import (
 	"github.com/NibiruChain/nibiru/v2/x/evm"
 )
 
-// EventFormat is an enum type for an ethereum tx event. Each event format
-// variant has json-rpc logic to make it so that clients using either format will
-// be compatible, meaning nodes will able to sync without restarting from the
-// first block.
-type EventFormat int
-
-const (
-	eventFormatUnknown EventFormat = iota
-
-	// Event Format 1
-	// ```
-	// ethereum_tx(amount, ethereumTxHash, [txIndex, txGasUsed], txHash, [receipient], ethereumTxFailed)
-	// tx_log(txLog, txLog, ...)
-	// ethereum_tx(amount, ethereumTxHash, [txIndex, txGasUsed], txHash, [receipient], ethereumTxFailed)
-	// tx_log(txLog, txLog, ...)
-	// ...
-	// ```
-	eventFormat1
-
-	// Event Format 2
-	// ```
-	// ethereum_tx(ethereumTxHash, txIndex)
-	// ethereum_tx(ethereumTxHash, txIndex)
-	// ...
-	// ethereum_tx(amount, ethereumTxHash, txIndex, txGasUsed, txHash, [receipient], ethereumTxFailed)
-	// tx_log(txLog, txLog, ...)
-	// ethereum_tx(amount, ethereumTxHash, txIndex, txGasUsed, txHash, [receipient], ethereumTxFailed)
-	// tx_log(txLog, txLog, ...)
-	// ...
-	// ```
-	// If the transaction exceeds block gas limit, it only emits the first part.
-	eventFormat2
-)
-
 // ParsedTx is eth tx info parsed from ABCI events. Each `ParsedTx` corresponds
 // to one eth tx msg ([evm.MsgEthereumTx]).
 type ParsedTx struct {
-	MsgIndex int
+	MsgIndex uint64
 
 	// the following fields are parsed from events
 
@@ -62,8 +29,34 @@ type ParsedTx struct {
 	Failed     bool
 }
 
+func (p ParsedTx) FromEvent(e *evm.EventEthereumTx) (ParsedTx, error) {
+	if e == nil {
+		return ParsedTx{}, fmt.Errorf("nil eth tx event")
+	}
+	ethBlockTxIdx, err := strconv.ParseInt(e.Index, 10, 64)
+	if err != nil {
+		return ParsedTx{}, err
+	}
+	gasUsed, err := strconv.ParseUint(e.GasUsed, 10, 64)
+	if err != nil {
+		return ParsedTx{}, err
+	}
+	blockTxMsgIdx, err := strconv.ParseUint(e.Index, 10, 64)
+	if err != nil {
+		return ParsedTx{}, err
+	}
+
+	return ParsedTx{
+		MsgIndex:   blockTxMsgIdx,
+		Hash:       common.HexToHash(e.EthHash),
+		EthTxIndex: int32(ethBlockTxIdx),
+		GasUsed:    gasUsed,
+		Failed:     len(e.EthTxFailed) > 0,
+	}, nil
+}
+
 // NewParsedTx initialize a ParsedTx
-func NewParsedTx(msgIndex int) ParsedTx {
+func NewParsedTx(msgIndex uint64) ParsedTx {
 	return ParsedTx{MsgIndex: msgIndex, EthTxIndex: -1}
 }
 
@@ -80,53 +73,58 @@ type ParsedTxs struct {
 func ParseTxResult(
 	result *abci.ResponseDeliverTx, tx sdk.Tx,
 ) (*ParsedTxs, error) {
-	format := eventFormatUnknown
 	// the index of current ethereum_tx event in format 1 or the second part of format 2
-	eventIndex := -1
+	// eventIndex := -1
 
 	p := &ParsedTxs{
 		TxHashes: make(map[common.Hash]int),
+		Txs:      []ParsedTx{},
 	}
+
+	typeUrl := evm.TypeUrlEventEthereumTx
 	for _, event := range result.Events {
-		if event.Type != evm.EventTypeEthereumTx {
+		if event.Type != typeUrl {
 			continue
 		}
 
-		if format == eventFormatUnknown {
-			// discover the format version by inspect the first ethereum_tx event.
-			if len(event.Attributes) > 2 {
-				format = eventFormat1
-			} else {
-				format = eventFormat2
-			}
+		typedProtoEvent, err := sdk.ParseTypedEvent(event)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err, "failed to parse event of type %s", typeUrl)
+		}
+		eventEthTx, ok := (typedProtoEvent).(*evm.EventEthereumTx)
+		if !ok {
+			return nil, errors.Wrapf(
+				err, "failed to parse event of type %s", typeUrl)
 		}
 
-		if len(event.Attributes) == 2 {
-			// the first part of format 2
-			if err := p.newTx(event.Attributes); err != nil {
-				return nil, err
-			}
-		} else {
-			// format 1 or second part of format 2
-			eventIndex++
-			if format == eventFormat1 {
-				// append tx
-				if err := p.newTx(event.Attributes); err != nil {
-					return nil, err
-				}
-			} else {
-				// the second part of format 2, update tx fields
-				if err := p.updateTx(eventIndex, event.Attributes); err != nil {
-					return nil, err
-				}
-			}
+		parsedTx, err := ParsedTx{}.FromEvent(eventEthTx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create parsed tx from event")
 		}
-	}
+		p.Txs = append(p.Txs, parsedTx)
+		p.TxHashes[parsedTx.Hash] = int(parsedTx.MsgIndex)
 
-	// some old versions miss some events, fill it with tx result
-	gasUsed := uint64(result.GasUsed) // #nosec G701
-	if len(p.Txs) == 1 {
-		p.Txs[0].GasUsed = gasUsed
+		// if len(event.Attributes) == 2 {
+		// 	// the first part of format 2
+		// 	if err := p.newTx(event.Attributes); err != nil {
+		// 		return nil, err
+		// 	}
+		// } else {
+		// 	// format 1 or second part of format 2
+		// 	eventIndex++
+		// 	if format == eventFormat1 {
+		// 		// append tx
+		// 		if err := p.newTx(event.Attributes); err != nil {
+		// 			return nil, err
+		// 		}
+		// 	} else {
+		// 		// the second part of format 2, update tx fields
+		// 		if err := p.updateTx(eventIndex, event.Attributes); err != nil {
+		// 			return nil, err
+		// 		}
+		// 	}
+		// }
 	}
 
 	// this could only happen if tx exceeds block gas limit
@@ -170,7 +168,7 @@ func ParseTxIndexerResult(
 // newTx parse a new tx from events, called during parsing.
 func (p *ParsedTxs) newTx(attrs []abci.EventAttribute) error {
 	msgIndex := len(p.Txs)
-	tx := NewParsedTx(msgIndex)
+	tx := NewParsedTx(uint64(msgIndex))
 	if err := fillTxAttributes(&tx, attrs); err != nil {
 		return err
 	}
@@ -182,7 +180,7 @@ func (p *ParsedTxs) newTx(attrs []abci.EventAttribute) error {
 // updateTx updates an exiting tx from events, called during parsing.
 // In event format 2, we update the tx with the attributes of the second `ethereum_tx` event,
 func (p *ParsedTxs) updateTx(eventIndex int, attrs []abci.EventAttribute) error {
-	tx := NewParsedTx(eventIndex)
+	tx := NewParsedTx(uint64(eventIndex))
 	if err := fillTxAttributes(&tx, attrs); err != nil {
 		return err
 	}
@@ -224,8 +222,8 @@ func (p *ParsedTxs) GetTxByTxIndex(txIndex int) *ParsedTx {
 }
 
 // AccumulativeGasUsed calculates the accumulated gas used within the batch of txs
-func (p *ParsedTxs) AccumulativeGasUsed(msgIndex int) (result uint64) {
-	for i := 0; i <= msgIndex; i++ {
+func (p *ParsedTxs) AccumulativeGasUsed(msgIndex uint64) (result uint64) {
+	for i := uint64(0); i <= msgIndex; i++ {
 		result += p.Txs[i].GasUsed
 	}
 	return result

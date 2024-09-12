@@ -176,7 +176,7 @@ func RegisterBlockResultsWithEventLog(client *mocks.Client, height int64) (*tmrp
 		Height: height,
 		TxsResults: []*abci.ResponseDeliverTx{
 			{Code: 0, GasUsed: 0, Events: []abci.Event{{
-				Type: evm.EventTypeTxLog,
+				Type: evm.TypeUrlEventTxLog,
 				Attributes: []abci.EventAttribute{{
 					Key:   evm.AttributeKeyTxLog,
 					Value: "{\"test\": \"hello\"}", // TODO refactor the value to unmarshall to a evmtypes.Log struct successfully

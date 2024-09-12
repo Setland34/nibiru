@@ -39,9 +39,10 @@ var (
 )
 
 // message type and route constants
-const (
+var (
 	// TypeMsgEthereumTx defines the type string of an Ethereum transaction
-	TypeMsgEthereumTx = "ethereum_tx"
+	// TypeMsgEthereumTx = proto.MessageName((*MsgEthereumTx)(nil))
+	TypeMsgEthereumTx = "eth.evm.v1.MsgEthereumTx"
 )
 
 // NewTx returns a reference to a new Ethereum transaction message.

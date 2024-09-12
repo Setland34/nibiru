@@ -76,7 +76,7 @@ func TestKVIndexer(t *testing.T) {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},
@@ -96,11 +96,11 @@ func TestKVIndexer(t *testing.T) {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 						}},
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "amount", Value: "1000"},
 							{Key: "txGasUsed", Value: "21000"},
 							{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},

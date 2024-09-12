@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -22,6 +23,16 @@ func TestParseTxResult(t *testing.T) {
 		wantEthTxs []*ParsedTx // expected parse result, nil means expect error.
 	}
 
+	eventEthTxSuccess, _ := sdk.TypedEventToEvent(&evm.EventEthereumTx{
+		Amount:    "1000",
+		EthHash:   txHash.Hex(),
+		Index:     "10",
+		GasUsed:   "21000",
+		Hash:      "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57",
+		Recipient: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7",
+		// EthTxFailed: "",
+	})
+
 	testCases := []TestCase{
 		{
 			name: "format 1 events",
@@ -29,37 +40,30 @@ func TestParseTxResult(t *testing.T) {
 				GasUsed: 21000,
 				Events: []abci.Event{
 					{Type: "coin_received", Attributes: []abci.EventAttribute{
-						{Key: "receiver", Value: "ethm12luku6uxehhak02py4rcz65zu0swh7wjun6msa"},
+						{Key: "receiver", Value: "nibi12luku6uxehhak02py4rcz65zu0swh7wjun6msa"},
 						{Key: "amount", Value: "1252860basetcro"},
 					}},
 					{Type: "coin_spent", Attributes: []abci.EventAttribute{
-						{Key: "spender", Value: "ethm17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
+						{Key: "spender", Value: "nibi17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
 						{Key: "amount", Value: "1252860basetcro"},
 					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-						{Key: "ethereumTxHash", Value: txHash.Hex()},
-						{Key: "txIndex", Value: "10"},
-						{Key: "amount", Value: "1000"},
-						{Key: "txGasUsed", Value: "21000"},
-						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},
-						{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
-					}},
+					{Type: eventEthTxSuccess.Type, Attributes: eventEthTxSuccess.Attributes},
 					{Type: "message", Attributes: []abci.EventAttribute{
-						{Key: "action", Value: "/ehermint.evm.v1.MsgEthereumTx"},
-						{Key: "key", Value: "ethm17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
+						{Key: "action", Value: "/eth.evm.v1.MsgEthereumTx"},
+						{Key: "key", Value: "nibi17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
 						{Key: "module", Value: "evm"},
 						{Key: "sender", Value: address},
 					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-						{Key: "ethereumTxHash", Value: txHash2.Hex()},
+					{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
+						{Key: evm.AttributeKeyEthereumTxHash, Value: txHash2.Hex()},
 						{Key: "txIndex", Value: "11"},
 						{Key: "amount", Value: "1000"},
 						{Key: "txGasUsed", Value: "21000"},
 						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},
 						{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
-						{Key: "ethereumTxFailed", Value: "contract everted"},
+						{Key: evm.AttributeKeyEthereumTxFailed, Value: "contract everted"},
 					}},
-					{Type: evm.EventTypeTxLog, Attributes: []abci.EventAttribute{}},
+					{Type: evm.TypeUrlEventTxLog, Attributes: []abci.EventAttribute{}},
 				},
 			},
 			wantEthTxs: []*ParsedTx{
@@ -92,18 +96,12 @@ func TestParseTxResult(t *testing.T) {
 						{Key: "spender", Value: "ethm17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
 						{Key: "amount", Value: "1252860basetcro"},
 					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-						{Key: "ethereumTxHash", Value: txHash.Hex()},
-						{Key: "txIndex", Value: "0"},
-					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-						{Key: "amount", Value: "1000"},
-						{Key: "ethereumTxHash", Value: txHash.Hex()},
-						{Key: "txIndex", Value: "0"},
-						{Key: "txGasUsed", Value: "21000"},
-						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},
-						{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
-					}},
+					// {Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
+					// 	{Key: "ethereumTxHash", Value: txHash.Hex()},
+					// 	{Key: "txIndex", Value: "0"},
+					// }},
+					{Type: eventEthTxSuccess.Type, Attributes: eventEthTxSuccess.Attributes},
+					{Type: eventEthTxSuccess.Type, Attributes: eventEthTxSuccess.Attributes},
 					{Type: "message", Attributes: []abci.EventAttribute{
 						{Key: "action", Value: "/ehermint.evm.v1.MsgEthereumTx"},
 						{Key: "key", Value: "ethm17xpfvakm2amg962yls6f84z3kell8c5lthdzgl"},
@@ -114,9 +112,9 @@ func TestParseTxResult(t *testing.T) {
 			},
 			wantEthTxs: []*ParsedTx{
 				{
-					MsgIndex:   0,
+					MsgIndex:   3,
 					Hash:       txHash,
-					EthTxIndex: 0,
+					EthTxIndex: 10,
 					GasUsed:    21000,
 					Failed:     false,
 				},
@@ -127,7 +125,7 @@ func TestParseTxResult(t *testing.T) {
 			abci.ResponseDeliverTx{
 				GasUsed: 21000,
 				Events: []abci.Event{
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+					{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 						{Key: "ethereumTxHash", Value: txHash.Hex()},
 						{Key: "txIndex", Value: "10"},
 						{Key: "amount", Value: "1000"},
@@ -135,16 +133,16 @@ func TestParseTxResult(t *testing.T) {
 						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},
 						{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
 					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+					{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 						{Key: "ethereumTxHash", Value: txHash2.Hex()},
 						{Key: "txIndex", Value: "10"},
 						{Key: "amount", Value: "1000"},
 						{Key: "txGasUsed", Value: "0x01"},
 						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},
 						{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
-						{Key: "ethereumTxFailed", Value: "contract everted"},
+						{Key: evm.AttributeKeyEthereumTxFailed, Value: "contract everted"},
 					}},
-					{Type: evm.EventTypeTxLog, Attributes: []abci.EventAttribute{}},
+					{Type: evm.TypeUrlEventTxLog, Attributes: []abci.EventAttribute{}},
 				},
 			},
 			nil,
@@ -154,11 +152,11 @@ func TestParseTxResult(t *testing.T) {
 			txResp: abci.ResponseDeliverTx{
 				GasUsed: 21000,
 				Events: []abci.Event{
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+					{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 						{Key: "ethereumTxHash", Value: txHash.Hex()},
 						{Key: "txIndex", Value: "10"},
 					}},
-					{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+					{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 						{Key: "amount", Value: "1000"},
 						{Key: "txGasUsed", Value: "0x01"},
 						{Key: "txHash", Value: "14A84ED06282645EFBF080E0B7ED80D8D8D6A36337668A12B5F229F81CDD3F57"},

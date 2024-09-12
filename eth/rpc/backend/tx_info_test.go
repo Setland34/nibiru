@@ -31,7 +31,7 @@ func (s *BackendSuite) TestGetTransactionByHash() {
 		{
 			Code: 0,
 			Events: []abci.Event{
-				{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+				{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 					{Key: "ethereumTxHash", Value: txHash.Hex()},
 					{Key: "txIndex", Value: "0"},
 					{Key: "amount", Value: "1000"},
@@ -289,7 +289,7 @@ func (s *BackendSuite) TestGetTransactionByBlockAndIndex() {
 		{
 			Code: 0,
 			Events: []abci.Event{
-				{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+				{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 					{Key: "ethereumTxHash", Value: common.HexToHash(msgEthTx.Hash).Hex()},
 					{Key: "txIndex", Value: "0"},
 					{Key: "amount", Value: "1000"},
@@ -476,7 +476,7 @@ func (s *BackendSuite) TestGetTransactionByTxIndex() {
 			func() {
 				client := s.backend.clientCtx.Client.(*mocks.Client)
 				s.backend.indexer = nil
-				RegisterTxSearch(client, "tx.height=0 AND ethereum_tx.txIndex=0", bz)
+				RegisterTxSearch(client, fmt.Sprintf("tx.height=0 AND %s.index=0", evm.TypeUrlEventEthereumTx), bz)
 			},
 			0,
 			0,
@@ -577,7 +577,7 @@ func (s *BackendSuite) TestGetTransactionReceipt() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},

@@ -361,6 +361,7 @@ func (b *Backend) HeaderByHash(blockHash common.Hash) (*gethcore.Header, error) 
 // BlockBloom query block bloom filter from block results
 func (b *Backend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (gethcore.Bloom, error) {
 	msgType := proto.MessageName((*evm.EventBlockBloom)(nil))
+	fmt.Printf("TODO: UD-DEBUG:  msgType: %v\n", msgType)
 	for _, event := range blockRes.EndBlockEvents {
 		if event.Type != msgType {
 			continue

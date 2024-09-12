@@ -2,10 +2,12 @@
 package rpcapi
 
 import (
+	"fmt"
+	"math/big"
+
 	"cosmossdk.io/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	gethcore "github.com/ethereum/go-ethereum/core/types"
@@ -116,6 +118,7 @@ func returnLogs(logs []*gethcore.Log) []*gethcore.Log {
 func ParseBloomFromEvents(events []abci.Event) (bloom gethcore.Bloom, err error) {
 	bloomEvent := new(evm.EventBlockBloom)
 	bloomEventType := gogoproto.MessageName(bloomEvent)
+	fmt.Printf("TODO: UD-DEBUG:  bloomEventType: %v\n", bloomEventType)
 	for _, event := range events {
 		if event.Type != bloomEventType {
 			continue

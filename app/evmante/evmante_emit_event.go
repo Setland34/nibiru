@@ -30,9 +30,9 @@ func (eeed EthEmitEventDecorator) AnteHandle(
 	// After eth tx passed ante handler, the fee is deducted and nonce increased,
 	// it shouldn't be ignored by json-rpc. We need to emit some events at the
 	// very end of ante handler to be indexed by the consensus engine.
-	txIndex := eeed.evmKeeper.EVMState().BlockTxIndex.GetOr(ctx, 0)
+	blockTxIndex := eeed.evmKeeper.EVMState().BlockTxIndex.GetOr(ctx, 0)
 
-	for i, msg := range tx.GetMsgs() {
+	for msgIdx, msg := range tx.GetMsgs() {
 		msgEthTx, ok := msg.(*evm.MsgEthereumTx)
 		if !ok {
 			return ctx, errorsmod.Wrapf(
@@ -42,19 +42,29 @@ func (eeed EthEmitEventDecorator) AnteHandle(
 			)
 		}
 
+		blockEthTxIndex := blockTxIndex + uint64(msgIdx)
 		// emit ethereum tx hash as an event so that it can be indexed by
 		// Tendermint for query purposes it's emitted in ante handler, so we can
 		// query failed transaction (out of block gas limit).
-		ctx.EventManager().EmitEvent(
-			sdk.NewEvent(
-				evm.EventTypeEthereumTx,
-				sdk.NewAttribute(evm.AttributeKeyEthereumTxHash, msgEthTx.Hash),
-				sdk.NewAttribute(
-					evm.AttributeKeyTxIndex, strconv.FormatUint(txIndex+uint64(i),
-						10,
-					),
-				), // #nosec G701
-			))
+		_ = ctx.EventManager().EmitTypedEvent(&evm.EventEthereumTx{
+			// Amount:      "",
+			EthHash: msgEthTx.Hash,
+			Index:   strconv.FormatUint(blockEthTxIndex, 10),
+			GasUsed: strconv.FormatUint(msgEthTx.GetGas(), 10),
+			// Hash:        "",
+			Recipient: msgEthTx.From,
+			// EthTxFailed:  "",
+		})
+		// ctx.EventManager().EmitEvent(
+		// 	sdk.NewEvent(
+		// 		evm.TypeUrlEventEthereumTx,
+		// 		sdk.NewAttribute(evm.AttributeKeyEthereumTxHash, msgEthTx.Hash),
+		// 		sdk.NewAttribute(
+		// 			evm.AttributeKeyTxIndex, strconv.FormatUint(blockTxIndex+uint64(msgIdx),
+		// 				10,
+		// 			),
+		// 		), // #nosec G701
+		// 	))
 	}
 
 	return next(ctx, tx, simulate)

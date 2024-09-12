@@ -49,7 +49,7 @@ func (s *BackendSuite) TestBaseFee() {
 				Height: 1,
 				BeginBlockEvents: []types.Event{
 					{
-						Type: evm.EventTypeBlockBloom,
+						Type: evm.TypeUrlEventBlockBloom,
 					},
 				},
 			},

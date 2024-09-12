@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"cosmossdk.io/math"
-	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/cometbft/cometbft/abci/types"
 	cmtrpc "github.com/cometbft/cometbft/rpc/core/types"
@@ -17,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/NibiruChain/nibiru/v2/eth"
 	"github.com/NibiruChain/nibiru/v2/eth/rpc"
 	"github.com/NibiruChain/nibiru/v2/eth/rpc/backend/mocks"
 	"github.com/NibiruChain/nibiru/v2/x/evm"
@@ -823,58 +823,72 @@ func (s *BackendSuite) TestBlockNumberFromTendermintByHash() {
 func (s *BackendSuite) TestBlockBloom() {
 	testCases := []struct {
 		name           string
-		blockRes       *cmtrpc.ResultBlockResults
+		blockRes       func() *cmtrpc.ResultBlockResults
 		wantBlockBloom gethcore.Bloom
 		wantPass       bool
 	}{
 		{
 			"fail - empty block result",
-			&cmtrpc.ResultBlockResults{},
+			func() *cmtrpc.ResultBlockResults {
+				return &cmtrpc.ResultBlockResults{}
+			},
 			gethcore.Bloom{},
 			false,
 		},
 		{
 			"fail - non block bloom event type",
-			&cmtrpc.ResultBlockResults{
-				EndBlockEvents: []types.Event{{Type: evm.EventTypeEthereumTx}},
+			func() *cmtrpc.ResultBlockResults {
+				return &cmtrpc.ResultBlockResults{
+					EndBlockEvents: []types.Event{{Type: evm.TypeUrlEventEthereumTx}},
+				}
 			},
 			gethcore.Bloom{},
 			false,
 		},
 		{
 			"fail - nonblock bloom attribute key",
-			&cmtrpc.ResultBlockResults{
-				EndBlockEvents: []types.Event{
-					{
-						Type: proto.MessageName((*evm.EventBlockBloom)(nil)),
-						Attributes: []types.EventAttribute{
-							{Key: evm.AttributeKeyEthereumTxHash},
+			func() *cmtrpc.ResultBlockResults {
+				event, _ := sdk.TypedEventToEvent(&evm.EventBlockBloom{
+					Bloom: "123456",
+				})
+
+				return &cmtrpc.ResultBlockResults{
+					EndBlockEvents: []types.Event{
+						{
+							Type: event.Type,
+							Attributes: []types.EventAttribute{
+								{Key: "not-the-block-bloom-key"},
+							},
 						},
 					},
-				},
+				}
 			},
 			gethcore.Bloom{},
 			false,
 		},
 		{
 			"pass - block bloom attribute key",
-			&cmtrpc.ResultBlockResults{
-				EndBlockEvents: []types.Event{
-					{
-						Type: proto.MessageName((*evm.EventBlockBloom)(nil)),
-						Attributes: []types.EventAttribute{
-							{Key: evm.AttributeKeyEthereumBloom},
+			func() *cmtrpc.ResultBlockResults {
+				event, _ := sdk.TypedEventToEvent(&evm.EventBlockBloom{
+					Bloom: eth.BytesToHex([]byte("123456")),
+				})
+
+				return &cmtrpc.ResultBlockResults{
+					EndBlockEvents: []types.Event{
+						{
+							Type:       event.Type,
+							Attributes: event.Attributes,
 						},
 					},
-				},
+				}
 			},
-			gethcore.Bloom{},
+			gethcore.BytesToBloom([]byte("123456")),
 			true,
 		},
 	}
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
-			blockBloom, err := s.backend.BlockBloom(tc.blockRes)
+			blockBloom, err := s.backend.BlockBloom(tc.blockRes())
 
 			if tc.wantPass {
 				s.Require().NoError(err)
@@ -1582,7 +1596,7 @@ func (s *BackendSuite) TestEthBlockFromTendermintBlock() {
 				TxsResults: []*types.ResponseDeliverTx{{Code: 0, GasUsed: 0}},
 				EndBlockEvents: []types.Event{
 					{
-						Type: evm.EventTypeBlockBloom,
+						Type: evm.TypeUrlEventBlockBloom,
 						Attributes: []types.EventAttribute{
 							{Key: evm.AttributeKeyEthereumBloom},
 						},

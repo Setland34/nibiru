@@ -69,7 +69,7 @@ func (s *BackendSuite) TestTraceTransaction() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},
@@ -95,7 +95,7 @@ func (s *BackendSuite) TestTraceTransaction() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},
@@ -127,7 +127,7 @@ func (s *BackendSuite) TestTraceTransaction() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},
@@ -140,7 +140,7 @@ func (s *BackendSuite) TestTraceTransaction() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash2.Hex()},
 							{Key: "txIndex", Value: "1"},
 							{Key: "amount", Value: "1000"},
@@ -172,7 +172,7 @@ func (s *BackendSuite) TestTraceTransaction() {
 				{
 					Code: 0,
 					Events: []abci.Event{
-						{Type: evm.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Type: evm.TypeUrlEventEthereumTx, Attributes: []abci.EventAttribute{
 							{Key: "ethereumTxHash", Value: txHash.Hex()},
 							{Key: "txIndex", Value: "0"},
 							{Key: "amount", Value: "1000"},

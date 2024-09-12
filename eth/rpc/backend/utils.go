@@ -211,7 +211,9 @@ func (b *Backend) processBlock(
 func AllTxLogsFromEvents(events []abci.Event) ([][]*gethcore.Log, error) {
 	allLogs := make([][]*gethcore.Log, 0, 4)
 	for _, event := range events {
-		if event.Type != evm.EventTypeTxLog {
+		fmt.Printf("TODO: UD-DEBUG: event.Type: %v\n", event.Type)
+		fmt.Printf("TODO: UD-DEBUG: evm.TypeUrlEventTxLog: %v\n", evm.TypeUrlEventTxLog)
+		if event.Type != evm.TypeUrlEventTxLog {
 			continue
 		}
 
@@ -228,7 +230,9 @@ func AllTxLogsFromEvents(events []abci.Event) ([][]*gethcore.Log, error) {
 // TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
 func TxLogsFromEvents(events []abci.Event, msgIndex int) ([]*gethcore.Log, error) {
 	for _, event := range events {
-		if event.Type != evm.EventTypeTxLog {
+		fmt.Printf("TODO: UD-DEBUG: event.Type: %v\n", event.Type)
+		fmt.Printf("TODO: UD-DEBUG: evm.TypeUrlEventTxLog: %v\n", evm.TypeUrlEventTxLog)
+		if event.Type != evm.TypeUrlEventTxLog {
 			continue
 		}
 
@@ -247,6 +251,8 @@ func TxLogsFromEvents(events []abci.Event, msgIndex int) ([]*gethcore.Log, error
 func ParseTxLogsFromEvent(event abci.Event) ([]*gethcore.Log, error) {
 	logs := make([]*evm.Log, 0, len(event.Attributes))
 	for _, attr := range event.Attributes {
+		fmt.Printf("TODO: UD-DEBUG: event.Type: %v\n", event.Type)
+		fmt.Printf("TODO: UD-DEBUG: evm.TypeUrlEventTxLog: %v\n", evm.TypeUrlEventTxLog)
 		if attr.Key != evm.AttributeKeyTxLog {
 			continue
 		}

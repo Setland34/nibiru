@@ -59,7 +59,7 @@ func (s *TestSuite) TestEthEmitEventDecorator() {
 
 			s.Require().Greater(len(events), 0)
 			event := events[len(events)-1]
-			s.Require().Equal(evm.EventTypeEthereumTx, event.Type)
+			s.Require().Equal(evm.TypeUrlEventEthereumTx, event.Type)
 
 			// Convert tx to msg to get hash
 			txMsg, ok := tx.GetMsgs()[0].(*evm.MsgEthereumTx)
