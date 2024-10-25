@@ -51,15 +51,16 @@ func (p precompileFunToken) Run(
 	defer func() {
 		err = ErrPrecompileRun(err, p)
 	}()
-	start, err := OnRunStart(evm, contract, p.ABI())
+
+	res, err := OnRunStart(evm, contract, p.ABI())
 	if err != nil {
 		return nil, err
 	}
+	method, args, ctx := res.Method, res.Args, res.Ctx
 
-	method := start.Method
 	switch PrecompileMethod(method.Name) {
 	case FunTokenMethod_BankSend:
-		bz, err = p.bankSend(start, contract.CallerAddress, readonly)
+		bz, err = p.bankSend(ctx, contract.CallerAddress, method, args, readonly)
 	default:
 		// Note that this code path should be impossible to reach since
 		// "DecomposeInput" parses methods directly from the ABI.
@@ -69,8 +70,11 @@ func (p precompileFunToken) Run(
 	if err != nil {
 		return nil, err
 	}
-	// Dirty journal entries in `StateDB` must be committed
-	return bz, start.StateDB.Commit()
+	if err := OnRunEnd(res.StateDB, res.SnapshotBeforeRun, p.Address()); err != nil {
+		return nil, err
+	}
+	res.WriteCtx()
+	return bz, nil
 }
 
 func PrecompileFunToken(keepers keepers.PublicKeepers) vm.PrecompiledContract {
@@ -99,11 +103,12 @@ var executionGuard sync.Mutex
 //	function bankSend(address erc20, uint256 amount, string memory to) external;
 //	```
 func (p precompileFunToken) bankSend(
-	start OnRunStartResult,
+	ctx sdk.Context,
 	caller gethcommon.Address,
+	method *gethabi.Method,
+	args []any,
 	readOnly bool,
 ) (bz []byte, err error) {
-	ctx, method, args := start.Ctx, start.Method, start.Args
 	if e := assertNotReadonlyTx(readOnly, true); e != nil {
 		err = e
 		return

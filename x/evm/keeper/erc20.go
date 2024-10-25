@@ -12,7 +12,6 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethcore "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 
 	serverconfig "github.com/NibiruChain/nibiru/v2/app/server/config"
 	"github.com/NibiruChain/nibiru/v2/x/evm"
@@ -58,8 +57,7 @@ func (e erc20Calls) Mint(
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack ABI args: %w", err)
 	}
-	evmResp, _, err = e.CallContractWithInput(ctx, from, &contract, true, input)
-	return
+	return e.CallContractWithInput(ctx, from, &contract, true, input)
 }
 
 /*
@@ -80,7 +78,7 @@ func (e erc20Calls) Transfer(
 	if err != nil {
 		return false, fmt.Errorf("failed to pack ABI args: %w", err)
 	}
-	resp, _, err := e.CallContractWithInput(ctx, from, &contract, true, input)
+	resp, err := e.CallContractWithInput(ctx, from, &contract, true, input)
 	if err != nil {
 		return false, err
 	}
@@ -120,8 +118,7 @@ func (e erc20Calls) Burn(
 		return
 	}
 	commit := true
-	evmResp, _, err = e.CallContractWithInput(ctx, from, &contract, commit, input)
-	return
+	return e.CallContractWithInput(ctx, from, &contract, commit, input)
 }
 
 // CallContract invokes a smart contract on the method specified by [methodName]
@@ -152,8 +149,7 @@ func (k Keeper) CallContract(
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack ABI args: %w", err)
 	}
-	evmResp, _, err = k.CallContractWithInput(ctx, fromAcc, contract, commit, contractInput)
-	return evmResp, err
+	return k.CallContractWithInput(ctx, fromAcc, contract, commit, contractInput)
 }
 
 // CallContractWithInput invokes a smart contract with the given [contractInput].
@@ -174,7 +170,7 @@ func (k Keeper) CallContractWithInput(
 	contract *gethcommon.Address,
 	commit bool,
 	contractInput []byte,
-) (evmResp *evm.MsgEthereumTxResponse, evmObj *vm.EVM, err error) {
+) (evmResp *evm.MsgEthereumTxResponse, err error) {
 	// This is a `defer` pattern to add behavior that runs in the case that the error is
 	// non-nil, creating a concise way to add extra information.
 	defer func() {
@@ -189,7 +185,7 @@ func (k Keeper) CallContractWithInput(
 		commit, gasLimit, &fromAcc, contract, contractInput, k, ctx,
 	)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	unusedBigInt := big.NewInt(0)
@@ -214,28 +210,26 @@ func (k Keeper) CallContractWithInput(
 		k.EthChainID(ctx),
 	)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to load evm config")
-		return
+		return nil, errors.Wrapf(err, "failed to load evm config")
 	}
 
 	blockHash := gethcommon.BytesToHash(ctx.HeaderHash())
 	txConfig := statedb.NewEmptyTxConfig(blockHash)
 	txConfig.TxIndex = uint(k.EvmState.BlockLogSize.GetOr(ctx, 0))
 	txConfig.LogIndex = uint(k.EvmState.BlockLogSize.GetOr(ctx, 0))
-	evmResp, evmObj, err = k.ApplyEvmMsg(
+
+	evmResp, err = k.ApplyEvmMsg(
 		ctx, evmMsg, evm.NewNoOpTracer(), commit, evmCfg, txConfig,
 	)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to apply EVM message")
-		return
+		return nil, errors.Wrapf(err, "failed to apply EVM message")
 	}
 
 	if evmResp.Failed() {
-		err = errors.Wrapf(err, "EVM execution failed: %s", evmResp.VmError)
-		return
+		return nil, errors.Wrapf(err, "EVM execution failed: %s", evmResp.VmError)
 	}
 
-	return evmResp, evmObj, err
+	return evmResp, err
 }
 
 // computeCommitGasLimit: If the transition is meant to mutate state, this
